@@ -1,9 +1,4 @@
 import tensorflow as tf
-import dotenv
-
-# Load environment variables from .env file
-dotenv.load_dotenv()
-# Disable oneDNN optimizations for consistent results
 
 class AtariCNN(tf.keras.Model):
     def __init__(self, num_actions: int):
