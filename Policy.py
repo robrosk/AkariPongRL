@@ -46,8 +46,8 @@ class Policy:
         
         return log_probs
     
-    def compute_policy_gradient_estimator(self, log_probs, action, advantage):
-        return log_probs[action] * advantage 
+    def compute_policy_gradient_estimator(self, action, advantage):
+        return self.log_probs[action] * advantage 
         
     def clipped_surrogate_objective(self, log_probs, reward):
         pass

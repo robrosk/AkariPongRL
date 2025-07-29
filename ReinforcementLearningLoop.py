@@ -37,12 +37,12 @@ class ReinforcementLearningLoop:
         while not self.done and step_count < max_steps:
             action = self.choose_action(current_state)
             next_state, reward, done, truncated, info = self.step(action)   
-            self.replay_buffer.append([current_state, action, reward, next_state, done])         
+            self.replay_buffer.append([current_state, action, reward, next_state, done])  
+            current_state = next_state
             
             next_critic_value = self.get_next_critic_value(next_state)
             advantage = self.policy.advantange(reward, next_critic_value)
-            
-            current_state = next_state
+            self.policy.compute_policy_gradient_estimator(action, advantage)
             
             # Placeholder: add your RL logic here
             
