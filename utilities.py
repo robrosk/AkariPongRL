@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-class Utilities:
+class Utilities:    
     @staticmethod
     def softmax(logits):
         """

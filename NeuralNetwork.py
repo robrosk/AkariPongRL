@@ -44,14 +44,14 @@ class NeuralNetwork(tf.keras.Model):
             kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0)
         )
         
-        # 6) Actor head (logits over actions)
+        # 6) Actor head (logits over actions, which represents the probability each action is taken based on the expected reward (training) and state)
         self.logits = tf.keras.layers.Dense(
             units=num_actions,
             activation=None,
             kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01)
         )
         
-        # 7) Critic head (scalar value)
+        # 7) Critic head (scalar value that represents the expected reward based on the state)
         self.value = tf.keras.layers.Dense(
             units=1,
             activation=None,
