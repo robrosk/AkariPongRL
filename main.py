@@ -13,7 +13,9 @@ np.bool8 = np.bool_
 if __name__ == "__main__":
     print("Starting PPO with Atari Pong...")
     
-    num_steps = int(input("Enter the number of steps to run: "))
+    num_steps = int(input("Enter the number of steps to run per epoch: "))  # 2048
     
     rl_loop = ReinforcementLearningLoop()
-    rl_loop.run(max_steps=num_steps)
+    rl_loop.collect_experiences(num_steps=num_steps)
+    
+    rl_loop.train()

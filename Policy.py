@@ -16,27 +16,17 @@ class Policy:
         Selects an action for data collection.
         Runs the model and returns the action, its log probability under the
         current policy, and the critic's value estimate.
-        """
-        # expand dims to create a batch of 1.
-        state_batch = np.expand_dims(state, axis=0)
-        
-        logits, value = self.model(state_batch)
+        """        
+        logits, value = self.model(state)
         action_probs = Utilities.softmax(logits)
-        log_probs = np.log(action_probs)
-        
-        print(logits)
-        print(value)
-        print(action_probs)
-        print(log_probs)
-        
-        input("Press Enter to continue...")
-        
+        log_probs = np.log(np.array(action_probs))
+                
         action = np.random.choice(action_probs.shape[1], p=np.squeeze(action_probs))
         
         # Get the log probability of the specific action that was sampled.
         log_prob_action = log_probs[0, action]
         prob_action = action_probs[0, action]
-        
+                
         return action, prob_action, log_prob_action, np.squeeze(value)
 
     def evaluate_actions(self, states, actions):

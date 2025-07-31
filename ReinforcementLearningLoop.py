@@ -49,13 +49,14 @@ class ReinforcementLearningLoop:
             self.state = next_state
             if done or truncated:
                 self.state = self.reset()
+                
+            if _ % 100 == 0:
+                print(f"Collected {_} experiences")
         
     def train(self):
-        # Unpack the collected experiences from the replay buffer.
-        states, actions, rewards, next_states, dones, old_log_probs, values = map(np.array, zip(*self.replay_buffer))
+        # Unpack the collected experiences. Note that we stored the log_prob from the "old" policy.
+        states, actions, rewards, next_states, dones, action_probs, log_probs, values = map(np.array, zip(*self.replay_buffer))
 
-        # TODO: Calculate advantages (GAE) and returns.
-        
         # TODO: Loop for K epochs to optimize the policy.
 
         # Clear the replay buffer for the next collection phase.
