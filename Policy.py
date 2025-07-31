@@ -1,6 +1,7 @@
 import numpy as np
 from NeuralNetwork import NeuralNetwork
 from Utilities import Utilities
+import torch
 
 GAMMA = 0.99
 
