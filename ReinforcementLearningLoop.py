@@ -31,28 +31,32 @@ class ReinforcementLearningLoop:
         _, critic_value = self.policy.model(next_state)
         return critic_value
 
-    def run(self, max_steps=1000):
-        current_state = self.reset()
-        step_count = 0
-        while not self.done and step_count < max_steps:
-            action = self.choose_action(current_state)
-            next_state, reward, done, truncated, info = self.step(action)   
-            self.replay_buffer.append([current_state, action, reward, next_state, done])  
-            current_state = next_state
+    def collect_experiences(self, num_steps=2048):
+        """
+        Collects a batch of experience by running the policy in the environment.
+        """
+        if self.state is None:
+            self.state = self.reset()
+
+        for _ in range(num_steps):
+            action, prob_action, log_prob_action, critic_value = self.policy.select_action(self.state)
+
+            next_state, reward, done, truncated, info = self.step(action)
             
-            next_critic_value = self.get_next_critic_value(next_state)
-            advantage = self.policy.advantange(reward, next_critic_value)
-            self.policy.compute_policy_gradient_estimator(action, advantage)
+            # Store the experience from the "old" policy. Note we store the log_prob.
+            self.replay_buffer.append((self.state, action, reward, next_state, done, prob_action, log_prob_action, critic_value))
             
-            # Placeholder: add your RL logic here
-            
-            step_count += 1
-            
-    
-        self.environment.close()
+            self.state = next_state
+            if done or truncated:
+                self.state = self.reset()
         
     def train(self):
-        pass
+        # Unpack the collected experiences from the replay buffer.
+        states, actions, rewards, next_states, dones, old_log_probs, values = map(np.array, zip(*self.replay_buffer))
+
+        # TODO: Calculate advantages (GAE) and returns.
         
-    def choose_action(self, state):
-        return self.policy.select_action(state, training=False)
+        # TODO: Loop for K epochs to optimize the policy.
+
+        # Clear the replay buffer for the next collection phase.
+        self.replay_buffer = []

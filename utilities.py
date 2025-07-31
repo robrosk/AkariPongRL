@@ -13,8 +13,8 @@ class Utilities:
         Returns:
             probs: Tensor of shape (batch_size, num_actions) with probabilities
         """
-        exp_logits = tf.exp(logits - tf.reduce_max(logits, axis=-1, keepdims=True))
-        return exp_logits / tf.reduce_sum(exp_logits, axis=-1, keepdims=True)
+        exp_logits = np.exp(logits - np.max(logits, axis=-1, keepdims=True))
+        return exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
     
     @staticmethod
     def normalize_expand_transpose_state(state):
