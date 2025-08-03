@@ -4,6 +4,9 @@ from Utilities import Utilities
 import torch
 
 GAMMA = 0.99
+EPSILON = 0.2
+LAMBDA = 0.95
+
 
 """
 Policy class for PPO. This class is stateless.
@@ -11,6 +14,7 @@ Policy class for PPO. This class is stateless.
 class Policy:
     def __init__(self, neural_network):
         self.model = neural_network
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.00025)
 
     def select_action(self, state):
         """
@@ -48,12 +52,26 @@ class Policy:
         
         # Squeeze values to remove the singleton dimension (e.g., from (N, 1) to (N,)).
         return log_prob_actions, np.squeeze(values), entropy
+
+    def compute_gae(self, rewards, values, next_values, dones):
+        """
+        Computes the Generalized Advantage Estimation (GAE) for a batch of experiences.
+        """
+        advantages = np.zeros_like(rewards)
+        last_advantage = 0
+        for t in reversed(range(len(rewards))):
+            if dones[t]:
+                delta = rewards[t] - values[t]
+                last_advantage = delta
+            else:
+                delta = rewards[t] + GAMMA * next_values[t] - values[t]
+                last_advantage = delta + GAMMA * LAMBDA * last_advantage
+            advantages[t] = last_advantage
+        return advantages
     
-    def compute_advantange(self, reward, critic_prediction, previous_critic_prediction):
-        return reward + GAMMA * critic_prediction - previous_critic_prediction
-    
-    def compute_probability_ratio(self, action_probability, previous_action_probability):
-        return action_probability / previous_action_probability
-    
-    def compute_conservative_policy_iteration(self, ratio, advantage):
-        return ratio * advantage
+    def ppo_loss(self, old_log_probs, new_log_probs, advantages, new_values, old_values, entropy):
+        # TODO: Implement the PPO loss function
+        ratio = torch.exp(new_log_probs - old_log_probs) # torch.exp() is used to avoid numerical instability - log_probs can be negative and 
+        
+        
+

@@ -3,6 +3,7 @@ from PongEnvironment import PongEnvironment
 from Policy import Policy
 from NeuralNetwork import NeuralNetwork
 from Utilities import Utilities
+import torch
 
 class ReinforcementLearningLoop:
     def __init__(self, env_id="PongNoFrameskip-v4"):
@@ -53,11 +54,26 @@ class ReinforcementLearningLoop:
             if _ % 100 == 0:
                 print(f"Collected {_} experiences")
         
-    def train(self):
+    def train(self, k=10):
         # Unpack the collected experiences. Note that we stored the log_prob from the "old" policy.
         states, actions, rewards, next_states, dones, action_probs, log_probs, values = map(np.array, zip(*self.replay_buffer))
-
-        # TODO: Loop for K epochs to optimize the policy.
+                
+        # Loop for K epochs to optimize the policy.
+        for epoch in range(k):
+            # TODO: Implement the PPO training loop.
+            new_log_probs, new_values, entropy = self.policy.evaluate_actions(states, actions)
+            
+            # Compute the advantage.
+            advantages = self.policy.compute_advantage(rewards, values, new_values)
+            
+            # Compute the clipped surrogate objective loss.
+            loss = self.policy.clipped_surrogate_objective_loss(action_probs, new_log_probs, values, new_values, advantages)
+            
+            # Compute the policy entropy loss.
+            entropy_loss = -entropy.mean()
+            
+            # Compute the total loss.
+            
 
         # Clear the replay buffer for the next collection phase.
         self.replay_buffer = []
