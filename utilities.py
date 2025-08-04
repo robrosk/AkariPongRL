@@ -1,26 +1,19 @@
-import tensorflow as tf
+import torch
 import numpy as np
 
 class Utilities:    
     @staticmethod
     def softmax(logits):
         """
-        Compute softmax probabilities from logits.
-        
-        Args:
-            logits: Tensor of shape (batch_size, num_actions)
-        
-        Returns:
-            probs: Tensor of shape (batch_size, num_actions) with probabilities
+        Compute softmax probabilities from logits using PyTorch.
         """
-        exp_logits = np.exp(logits - np.max(logits, axis=-1, keepdims=True))
-        return exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
+        return torch.nn.functional.softmax(logits, dim=-1)
     
     @staticmethod
     def normalize_expand_transpose_state(state):
-        state = np.array(state).astype(np.float32) / 255.0
-        state = np.expand_dims(state, axis=0) # shape : (1, 4, 84, 84)
-        state = np.transpose(state, (0, 2, 3, 1))  # shape: (1, 84, 84, 4)
-        return state
-
-
+        """
+        Converts a NumPy state into a PyTorch tensor, normalizes, and transposes it.
+        """
+        state_tensor = torch.from_numpy(np.array(state)).float() / 255.0
+        state_tensor = state_tensor.unsqueeze(0)  # Add batch dimension
+        return state_tensor

@@ -20,18 +20,14 @@ class ReinforcementLearningLoop:
         return Utilities.normalize_expand_transpose_state(self.state)
 
     def step(self, action):
-        next_state, reward, done, truncated, info = self.environment.step(action)
-        next_state = Utilities.normalize_expand_transpose_state(next_state)
-        self.state = next_state
+        # action is an int
+        next_state_np, reward, done, truncated, info = self.environment.step(action)
+        next_state_tensor = Utilities.normalize_expand_transpose_state(next_state_np)
+        self.state = next_state_tensor
         self.done = done or truncated
         self.info = info
-        return next_state, reward, done, truncated, info
+        return next_state_tensor, reward, done, truncated, info
     
-    def get_next_critic_value(self, next_state):
-        # Get the critic value for the next state
-        _, critic_value = self.policy.model(next_state)
-        return critic_value
-
     def collect_experiences(self, num_steps=2048):
         """
         Collects a batch of experience by running the policy in the environment.
@@ -40,40 +36,55 @@ class ReinforcementLearningLoop:
             self.state = self.reset()
 
         for _ in range(num_steps):
-            action, prob_action, log_prob_action, critic_value = self.policy.select_action(self.state)
+            # The policy now works with tensors and returns tensor data
+            action, log_prob, value = self.policy.select_action(self.state)
 
             next_state, reward, done, truncated, info = self.step(action)
             
-            # Store the experience from the "old" policy. Note we store the log_prob.
-            self.replay_buffer.append((self.state, action, reward, next_state, done, prob_action, log_prob_action, critic_value))
+            # Store the tensor data - `action` is an int.
+            self.replay_buffer.append((self.state, action, reward, next_state, done, log_prob, value))
             
             self.state = next_state
             if done or truncated:
                 self.state = self.reset()
                 
-            if _ % 100 == 0:
+            if _ > 0 and _ % 100 == 0:
                 print(f"Collected {_} experiences")
         
-    def train(self, k=10):
-        # Unpack the collected experiences. Note that we stored the log_prob from the "old" policy.
-        states, actions, rewards, next_states, dones, action_probs, log_probs, values = map(np.array, zip(*self.replay_buffer))
-                
-        # Loop for K epochs to optimize the policy.
-        for epoch in range(k):
-            # TODO: Implement the PPO training loop.
-            new_log_probs, new_values, entropy = self.policy.evaluate_actions(states, actions)
+    def train(self, k_epochs=4):
+        # Unpack experiences. This is a list of tuples of tensors and other data.
+        states, actions, rewards, next_states, dones, old_log_probs, old_values = zip(*self.replay_buffer)
+
+        # Convert lists of tensors and numbers into single batched tensors.
+        # stack states and next_states, which are already (1, C, H, W), into (N, C, H, W)
+        states_tensor = torch.cat(states)
+        actions_tensor = torch.tensor(actions, dtype=torch.int64)
+        rewards_tensor = torch.tensor(rewards, dtype=torch.float32)
+        next_states_tensor = torch.cat(next_states)
+        dones_tensor = torch.tensor(dones, dtype=torch.float32)
+        old_log_probs_tensor = torch.stack(old_log_probs).detach()
+        old_values_tensor = torch.stack(old_values).squeeze().detach()
+
+        # Get the value of the last next_state for GAE calculation
+        with torch.no_grad():
+            _, last_value = self.policy.model(next_states_tensor[-1].unsqueeze(0))
+
+        # Calculate advantages using GAE.
+        advantages = self.policy.compute_gae(rewards_tensor, old_values_tensor, torch.cat((old_values_tensor[1:], last_value.flatten())), dones_tensor)
+        returns = (advantages + old_values_tensor).detach()
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        for _ in range(k_epochs):
+            new_log_probs, new_values, entropy = self.policy.evaluate_actions(states_tensor, actions_tensor)
             
-            # Compute the advantage.
-            advantages = self.policy.compute_advantage(rewards, values, new_values)
+            total_loss, policy_loss, value_loss = self.policy.compute_losses(old_log_probs_tensor, new_log_probs, advantages, new_values, returns, entropy)
             
-            # Compute the clipped surrogate objective loss.
-            loss = self.policy.clipped_surrogate_objective_loss(action_probs, new_log_probs, values, new_values, advantages)
-            
-            # Compute the policy entropy loss.
-            entropy_loss = -entropy.mean()
-            
-            # Compute the total loss.
-            
+            self.policy.optimizer.zero_grad()
+            total_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.policy.model.parameters(), 0.5)
+            self.policy.optimizer.step()
 
         # Clear the replay buffer for the next collection phase.
         self.replay_buffer = []
+
+        print(f"Training complete. Policy Loss: {policy_loss.item():.4f}, Value Loss: {value_loss.item():.4f}")

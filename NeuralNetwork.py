@@ -1,99 +1,82 @@
-import tensorflow as tf
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-class NeuralNetwork(tf.keras.Model):
+class NeuralNetwork(nn.Module):
     def __init__(self, num_actions: int):
         super(NeuralNetwork, self).__init__()
         
-        # 1) Conv1: in_channels=4 → out_channels=32, kernel=8×8, stride=4, ReLU
-        self.conv1 = tf.keras.layers.Conv2D(
-            filters=32,
+        # PyTorch expects input channels first: (N, C, H, W)
+        # 1) Conv1: in_channels=4 -> out_channels=32, kernel=8x8, stride=4, ReLU
+        self.conv1 = nn.Conv2d(
+            in_channels=4,
+            out_channels=32,
             kernel_size=8,
-            strides=4,
-            activation='relu',
-            data_format='channels_last',  # input shape: (batch, height, width, channels)
-            kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0)
+            stride=4
         )
         
-        # 2) Conv2: in_channels=32 → out_channels=64, kernel=4×4, stride=2, ReLU
-        self.conv2 = tf.keras.layers.Conv2D(
-            filters=64,
+        # 2) Conv2: in_channels=32 -> out_channels=64, kernel=4x4, stride=2, ReLU
+        self.conv2 = nn.Conv2d(
+            in_channels=32,
+            out_channels=64,
             kernel_size=4,
-            strides=2,
-            activation='relu',
-            data_format='channels_last',
-            kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0)
+            stride=2
         )
         
-        # 3) Conv3: in_channels=64 → out_channels=64, kernel=3×3, stride=1, ReLU
-        self.conv3 = tf.keras.layers.Conv2D(
-            filters=64,
+        # 3) Conv3: in_channels=64 -> out_channels=64, kernel=3x3, stride=1, ReLU
+        self.conv3 = nn.Conv2d(
+            in_channels=64,
+            out_channels=64,
             kernel_size=3,
-            strides=1,
-            activation='relu',
-            data_format='channels_last',
-            kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0)
+            stride=1
         )
         
-        # 4) Flatten layer (no learned parameters)
-        self.flatten = tf.keras.layers.Flatten()
+        # 4) Flatten layer is handled in the forward pass
         
-        # 5) Dense: 3136 → 512, ReLU
-        self.dense = tf.keras.layers.Dense(
-            units=512,
-            activation='relu',
-            kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0)
-        )
+        # 5) Dense: 3136 -> 512, ReLU
+        self.dense = nn.Linear(7 * 7 * 64, 512)
         
-        # 6) Actor head (logits over actions, which represents the probability each action is taken based on the expected reward (training) and state)
-        self.logits = tf.keras.layers.Dense(
-            units=num_actions,
-            activation=None,
-            kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01)
-        )
+        # 6) Actor head (logits over actions)
+        self.logits = nn.Linear(512, num_actions)
         
-        # 7) Critic head (scalar value that represents the expected reward based on the state)
-        self.value = tf.keras.layers.Dense(
-            units=1,
-            activation=None,
-            kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01)
-        )
+        # 7) Critic head (scalar value)
+        self.value = nn.Linear(512, 1)
 
-    def call(self, inputs):
+    def forward(self, inputs):
         """
         Forward pass:
-          inputs: float32 tensor, shape = (batch_size, 84, 84, 4),
+          inputs: float32 tensor, shape = (batch_size, 4, 84, 84),
                   with pixel values normalized to [0,1].
         Returns:
           logits: (batch_size, num_actions)
           value:  (batch_size, 1)
         """
-        # (a) Conv layers
-        x = self.conv1(inputs)   # → (batch_size, 20, 20, 32)
-        x = self.conv2(x)        # → (batch_size, 9, 9, 64)
-        x = self.conv3(x)        # → (batch_size, 7, 7, 64)
-
-        # (b) Flatten and FC
-        x = self.flatten(x)      # → (batch_size, 3136)
-        h = self.dense(x)        # → (batch_size, 512)
-
-        # (c) Actor & Critic heads
-        logits = self.logits(h)  # → (batch_size, num_actions)
-        value = self.value(h)    # → (batch_size, 1)
-
+        # PyTorch's channel format is (N, C, H, W)
+        # The Utilities.py file now correctly formats the state to (1, 4, 84, 84)
+        x = F.relu(self.conv1(inputs))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        
+        # Flatten the output for the dense layer
+        x = x.view(x.size(0), -1)
+        
+        h = F.relu(self.dense(x))
+        
+        logits = self.logits(h)
+        value = self.value(h)
+        
         return logits, value
 
 # Example of running a dummy forward pass:
 if __name__ == "__main__":
     print("Testing Neural Network...")
+    # The input to the network is now channels-first (N, C, H, W)
+    dummy_input = torch.rand(1, 4, 84, 84)
     model = NeuralNetwork(num_actions=6)
-
-    # Pass a dummy input to build the model
-    dummy_input = tf.random.uniform(shape=(1, 84, 84, 4), minval=0, maxval=1, dtype=tf.float32)
     logits_out, value_out = model(dummy_input)
-
-    print("Model summary:")
-    model.summary()
-
-    print("Logits shape:", logits_out.shape)  # Expect: (1, 6)
-    print("Value shape: ", value_out.shape)   # Expect: (1, 1)
+    
+    print("Model architecture:")
+    print(model)
+    
+    print("Logits shape:", logits_out.shape)  # Expect: torch.Size([1, 6])
+    print("Value shape: ", value_out.shape)   # Expect: torch.Size([1, 1])

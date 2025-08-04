@@ -1,21 +1,29 @@
 import os
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
-import gym
-from gym.wrappers import AtariPreprocessing, FrameStack
 import numpy as np
-from NeuralNetwork import NeuralNetwork
 from ReinforcementLearningLoop import ReinforcementLearningLoop
-from Utilities import Utilities
 
 np.bool8 = np.bool_
 
 if __name__ == "__main__":
     print("Starting PPO with Atari Pong...")
     
-    num_steps = int(input("Enter the number of steps to run per epoch: "))  # 2048
+    config = {
+        "num_steps_per_epoch": 2048,
+        "num_training_iterations": 500,
+        "k_epochs": 4
+    }
     
     rl_loop = ReinforcementLearningLoop()
-    rl_loop.collect_experiences(num_steps=num_steps)
     
-    rl_loop.train()
+    for i in range(config["num_training_iterations"]):
+        print(f"--- Iteration {i+1}/{config['num_training_iterations']} ---")
+        
+        print("Collecting experiences...")
+        rl_loop.collect_experiences(num_steps=config["num_steps_per_epoch"])
+        
+        print("Training...")
+        rl_loop.train(k_epochs=config["k_epochs"])
+        
+    print("Training finished.")
