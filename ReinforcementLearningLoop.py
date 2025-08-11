@@ -98,3 +98,4 @@ class ReinforcementLearningLoop:
         self.replay_buffer = []
 
         print(f"Training complete. Policy Loss: {policy_loss.item():.4f}, Value Loss: {value_loss.item():.4f}")
+        print(f"Entropy Loss. {entropy.mean()}")

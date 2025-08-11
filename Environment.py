@@ -166,7 +166,6 @@ class StandardEnvWrapper:
                 obs = (obs - obs.min()) / (obs.max() - obs.min())
             
             # Create a simple 84x84 representation
-            # For CartPole, we'll create a simple visualization
             if len(obs) == 4:  # CartPole: [cart_pos, cart_vel, pole_angle, pole_vel]
                 # Create a simple 84x84 representation
                 img = np.zeros((84, 84), dtype=np.float32)

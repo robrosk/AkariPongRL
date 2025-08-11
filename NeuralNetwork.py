@@ -18,6 +18,7 @@ class NeuralNetwork(nn.Module):
             self.num_actions = action_space.shape[0]
         
         # PyTorch expects input channels first: (N, C, H, W)
+
         # 1) Conv1: in_channels=4 -> out_channels=32, kernel=8x8, stride=4, ReLU
         self.conv1 = nn.Conv2d(
             in_channels=4,
