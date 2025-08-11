@@ -21,25 +21,45 @@ class Policy:
         Returns action, log_prob, and value as tensors.
         """
         with torch.no_grad():
-            logits, value = self.model(state_tensor)
-            probs = Utilities.softmax(logits)
-            dist = torch.distributions.Categorical(probs)
-            action = dist.sample()
-            log_prob = dist.log_prob(action)
-        return action.item(), log_prob, value
+            if self.model.is_discrete:
+                # Discrete actions
+                logits, value = self.model(state_tensor)
+                probs = Utilities.softmax(logits)
+                dist = torch.distributions.Categorical(probs)
+                action = dist.sample()
+                log_prob = dist.log_prob(action)
+                return action.item(), log_prob, value
+            else:
+                # Continuous actions
+                action_mean, action_log_std, value = self.model(state_tensor)
+                dist = torch.distributions.Normal(action_mean, action_log_std.exp())
+                action = dist.sample()
+                log_prob = dist.log_prob(action).sum(dim=-1)  # Sum across action dimensions
+                return action.cpu().numpy(), log_prob, value
 
     def evaluate_actions(self, states_tensor, actions_tensor):
         """
         Evaluates a batch of states and actions from the replay buffer during training.
         """
-        logits, values = self.model(states_tensor)
-        probs = Utilities.softmax(logits)
-        dist = torch.distributions.Categorical(probs)
-        
-        log_probs = dist.log_prob(actions_tensor)
-        entropy = dist.entropy()
-        
-        return log_probs, values.squeeze(), entropy
+        if self.model.is_discrete:
+            # Discrete actions
+            logits, values = self.model(states_tensor)
+            probs = Utilities.softmax(logits)
+            dist = torch.distributions.Categorical(probs)
+            
+            log_probs = dist.log_prob(actions_tensor)
+            entropy = dist.entropy()
+            
+            return log_probs, values.squeeze(), entropy
+        else:
+            # Continuous actions
+            action_mean, action_log_std, values = self.model(states_tensor)
+            dist = torch.distributions.Normal(action_mean, action_log_std.exp())
+            
+            log_probs = dist.log_prob(actions_tensor).sum(dim=-1)  # Sum across action dimensions
+            entropy = dist.entropy().sum(dim=-1)  # Sum across action dimensions
+            
+            return log_probs, values.squeeze(), entropy
 
     def compute_gae(self, rewards, values, next_values, dones):
         """
@@ -82,7 +102,6 @@ class Policy:
         
         return total_loss, policy_loss, value_loss
 
-    # Example of what you'd add:
     def compute_kl_divergence(self, old_log_probs, new_log_probs):
         # KL divergence between old and new policy
         pass

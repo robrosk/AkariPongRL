@@ -1,15 +1,16 @@
 import gymnasium as gym
 from gymnasium.wrappers import AtariPreprocessing, FrameStackObservation
 import numpy as np
+import cv2
 
 class Environment:
-    def __init__(self, env_id="CartPole-v1"):
+    def __init__(self, env_id="Acrobot-v1"):
         """
         Initialize environment wrapper that works with both Atari and standard environments.
         
         Args:
             env_id: Environment ID. For Atari, use IDs like 'ALE/Pong-v5' or 'PongNoFrameskip-v4'.
-                   For standard environments, use IDs like 'CartPole-v1'.
+                   For standard environments, use IDs like 'Acrobot-v1' (default).
         """
         self.env_id = env_id
         
@@ -87,7 +88,7 @@ class Environment:
 class StandardEnvWrapper:
     """
     Wrapper for standard gymnasium environments to make them compatible with the CNN architecture.
-    This converts simple state vectors into 4-channel 84x84 "images" that the neural network can process.
+    This converts observations into 4-channel 84x84 "images" that the neural network can process.
     """
     
     def __init__(self, env):
@@ -135,45 +136,68 @@ class StandardEnvWrapper:
     
     def _process_observation(self, obs):
         """
-        Convert a simple observation (e.g., CartPole's 4-vector) into an 84x84 "image".
-        This is a simplified approach - in practice, you might want more sophisticated processing.
+        Convert observations into 84x84 grayscale images.
+        Handles both vector observations (like CartPole) and image observations (like Pendulum).
         """
-        if isinstance(obs, (list, tuple)):
-            obs = np.array(obs)
+        # If it's already an image (like Pendulum-v1)
+        if isinstance(obs, np.ndarray) and len(obs.shape) == 3:
+            # Convert RGB to grayscale and resize to 84x84
+            if obs.shape[2] == 3:  # RGB image
+                gray = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
+            else:
+                gray = obs[:, :, 0]  # Take first channel if not RGB
+            
+            # Resize to 84x84
+            resized = cv2.resize(gray, (84, 84), interpolation=cv2.INTER_AREA)
+            
+            # Normalize to [0, 1]
+            normalized = resized.astype(np.float32) / 255.0
+            
+            return normalized
         
-        # Normalize the observation values
-        obs = obs.astype(np.float32)
-        if obs.max() != obs.min():
-            obs = (obs - obs.min()) / (obs.max() - obs.min())
-        
-        # Create a simple 84x84 representation
-        # For CartPole, we'll create a simple visualization
-        if len(obs) == 4:  # CartPole: [cart_pos, cart_vel, pole_angle, pole_vel]
+        # If it's a vector observation (like CartPole)
+        elif isinstance(obs, (list, tuple)) or (isinstance(obs, np.ndarray) and len(obs.shape) == 1):
+            if isinstance(obs, (list, tuple)):
+                obs = np.array(obs)
+            
+            # Normalize the observation values
+            obs = obs.astype(np.float32)
+            if obs.max() != obs.min():
+                obs = (obs - obs.min()) / (obs.max() - obs.min())
+            
             # Create a simple 84x84 representation
-            img = np.zeros((84, 84), dtype=np.float32)
-            
-            # Cart position (horizontal)
-            cart_x = int(41.5 + obs[0] * 20)  # Scale and center
-            cart_x = max(0, min(83, cart_x))
-            
-            # Pole angle (vertical position)
-            pole_y = int(41.5 + obs[2] * 20)  # Scale and center
-            pole_y = max(0, min(83, pole_y))
-            
-            # Draw cart and pole
-            img[pole_y, cart_x] = 1.0  # Pole tip
-            img[41, cart_x] = 1.0      # Cart position
-            
-            return img
+            # For CartPole, we'll create a simple visualization
+            if len(obs) == 4:  # CartPole: [cart_pos, cart_vel, pole_angle, pole_vel]
+                # Create a simple 84x84 representation
+                img = np.zeros((84, 84), dtype=np.float32)
+                
+                # Cart position (horizontal)
+                cart_x = int(41.5 + obs[0] * 20)  # Scale and center
+                cart_x = max(0, min(83, cart_x))
+                
+                # Pole angle (vertical position)
+                pole_y = int(41.5 + obs[2] * 20)  # Scale and center
+                pole_y = max(0, min(83, pole_y))
+                
+                # Draw cart and pole
+                img[pole_y, cart_x] = 1.0  # Pole tip
+                img[41, cart_x] = 1.0      # Cart position
+                
+                return img
+            else:
+                # For other environments, create a simple pattern
+                img = np.zeros((84, 84), dtype=np.float32)
+                center = 42
+                for i, val in enumerate(obs):
+                    if i < 84:
+                        img[center, i] = val
+                
+                return img
+        
+        # Fallback for unexpected observation types
         else:
-            # For other environments, create a simple pattern
-            img = np.zeros((84, 84), dtype=np.float32)
-            center = 42
-            for i, val in enumerate(obs):
-                if i < 84:
-                    img[center, i] = val
-            
-            return img
+            print(f"Warning: Unexpected observation type {type(obs)} with shape {obs.shape if hasattr(obs, 'shape') else 'unknown'}")
+            return np.zeros((84, 84), dtype=np.float32)
     
     @property
     def action_space(self):
@@ -188,4 +212,9 @@ class StandardEnvWrapper:
     @property
     def info(self):
         return self.env.info
+    
+    def close(self):
+        """Close the underlying environment."""
+        if hasattr(self.env, 'close'):
+            self.env.close()
     

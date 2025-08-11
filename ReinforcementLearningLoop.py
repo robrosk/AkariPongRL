@@ -6,9 +6,9 @@ from utilities import Utilities
 import torch
 
 class ReinforcementLearningLoop:
-    def __init__(self, env_id="CartPole-v1"):
+    def __init__(self, env_id="Acrobot-v1"):
         self.environment = Environment(env_id)
-        self.policy = Policy(NeuralNetwork(num_actions=self.environment.get_action_space().n))
+        self.policy = Policy(NeuralNetwork(action_space=self.environment.get_action_space()))
         self.replay_buffer = []
         self.state = None
         self.done = False
@@ -58,7 +58,14 @@ class ReinforcementLearningLoop:
         # Convert lists of tensors and numbers into single batched tensors.
         # stack states and next_states, which are already (1, C, H, W), into (N, C, H, W)
         states_tensor = torch.cat(states)
-        actions_tensor = torch.tensor(actions, dtype=torch.int64)
+        
+        if self.policy.model.is_discrete:
+            # Discrete actions are integers
+            actions_tensor = torch.tensor(actions, dtype=torch.int64)
+        else:
+            # Continuous actions are numpy arrays
+            actions_tensor = torch.tensor(np.array(actions), dtype=torch.float32)
+        
         rewards_tensor = torch.tensor(rewards, dtype=torch.float32)
         next_states_tensor = torch.cat(next_states)
         dones_tensor = torch.tensor(dones, dtype=torch.float32)
@@ -67,7 +74,10 @@ class ReinforcementLearningLoop:
 
         # Get the value of the last next_state for GAE calculation
         with torch.no_grad():
-            _, last_value = self.policy.model(next_states_tensor[-1].unsqueeze(0))
+            if self.policy.model.is_discrete:
+                _, last_value = self.policy.model(next_states_tensor[-1].unsqueeze(0))
+            else:
+                _, _, last_value = self.policy.model(next_states_tensor[-1].unsqueeze(0))
 
         # Calculate advantages using GAE.
         advantages = self.policy.compute_gae(rewards_tensor, old_values_tensor, torch.cat((old_values_tensor[1:], last_value.flatten())), dones_tensor)
