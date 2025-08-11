@@ -81,3 +81,16 @@ class Policy:
         total_loss = policy_loss + VALUE_COEFFICIENT * value_loss - ENTROPY_COEFFICIENT * entropy.mean()
         
         return total_loss, policy_loss, value_loss
+
+    # Example of what you'd add:
+    def compute_kl_divergence(self, old_log_probs, new_log_probs):
+        # KL divergence between old and new policy
+        pass
+
+    def early_stop_training(self, kl_div):
+        # Stop if KL divergence is too high
+        pass
+
+    def adaptive_learning_rate(self, kl_div):
+        # Adjust learning rate based on KL divergence
+        pass
