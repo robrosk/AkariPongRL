@@ -7,7 +7,7 @@ from ReinforcementLearningLoop import ReinforcementLearningLoop
 np.bool8 = np.bool_
 
 if __name__ == "__main__":
-    print("Starting PPO with Atari Pong...")
+    print("Starting PPO...")
     
     config = {
         "num_steps_per_epoch": 2048,

@@ -1,13 +1,13 @@
 import numpy as np
-from PongEnvironment import PongEnvironment
+from Environment import Environment
 from Policy import Policy
 from NeuralNetwork import NeuralNetwork
-from Utilities import Utilities
+from utilities import Utilities
 import torch
 
 class ReinforcementLearningLoop:
-    def __init__(self, env_id="PongNoFrameskip-v4"):
-        self.environment = PongEnvironment(env_id)
+    def __init__(self, env_id="CartPole-v1"):
+        self.environment = Environment(env_id)
         self.policy = Policy(NeuralNetwork(num_actions=self.environment.get_action_space().n))
         self.replay_buffer = []
         self.state = None
