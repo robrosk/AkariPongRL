@@ -99,3 +99,27 @@ class ReinforcementLearningLoop:
 
         print(f"Training complete. Policy Loss: {policy_loss.item():.4f}, Value Loss: {value_loss.item():.4f}")
         print(f"Entropy Loss. {entropy.mean()}")
+
+    def run(self, config):
+        """
+        Run the complete training loop using the provided configuration.
+        Each iteration collects experiences and then trains the policy.
+        
+        Args:
+            config: Dictionary containing training parameters:
+                - num_steps_per_epoch: Number of steps to collect per iteration
+                - num_training_iterations: Total number of training iterations
+                - k_epochs: Number of optimization epochs per training step
+        """
+        print(f"Starting PPO training for {config['num_training_iterations']} iterations...")
+        
+        for i in range(config['num_training_iterations']):
+            print(f"--- Iteration {i+1}/{config['num_training_iterations']} ---")
+            
+            print("Collecting experiences...")
+            self.collect_experiences(num_steps=config['num_steps_per_epoch'])
+            
+            print("Training...")
+            self.train(k_epochs=config['k_epochs'])
+            
+        print("Training finished.")
