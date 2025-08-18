@@ -4,15 +4,17 @@ import numpy as np
 import cv2
 
 class Environment:
-    def __init__(self, env_id="Acrobot-v1"):
+    def __init__(self, env_id="Acrobot-v1", render_mode="rgb_array"):
         """
         Initialize environment wrapper that works with both Atari and standard environments.
         
         Args:
             env_id: Environment ID. For Atari, use IDs like 'ALE/Pong-v5' or 'PongNoFrameskip-v4'.
                    For standard environments, use IDs like 'Acrobot-v1' (default).
+            render_mode: Rendering mode - "rgb_array" for training, "human" for visualization
         """
         self.env_id = env_id
+        self.render_mode = render_mode
         
         # Try to set up Atari environment first
         if self._is_atari_env(env_id):
@@ -36,7 +38,7 @@ class Environment:
     def _setup_atari_env(self, env_id):
         """Set up Atari environment with proper preprocessing."""
         # Create base environment
-        self.env = gym.make(env_id, render_mode="rgb_array")
+        self.env = gym.make(env_id, render_mode=self.render_mode)
         
         # Apply Atari preprocessing
         self.env = AtariPreprocessing(
@@ -56,7 +58,7 @@ class Environment:
     
     def _setup_standard_env(self, env_id):
         """Set up standard environment with wrapper for compatibility."""
-        self.env = gym.make(env_id, render_mode="rgb_array")
+        self.env = gym.make(env_id, render_mode=self.render_mode)
         self.env = StandardEnvWrapper(self.env)
         
         # Store original action and observation spaces
