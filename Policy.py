@@ -6,13 +6,14 @@ import numpy as np
 GAMMA = 0.99
 EPSILON = 0.2
 LAMBDA = 0.95
-VALUE_COEFFICIENT = 0.5
+VALUE_COEFFICIENT = 1.0
 ENTROPY_COEFFICIENT = 0.01
+BASE = 0.9
 
 class Policy:
     def __init__(self, neural_network):
         self.model = neural_network
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.00025, eps=1e-5)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-4, eps=1e-5)
 
     def select_action(self, state_tensor):
         """
@@ -101,15 +102,3 @@ class Policy:
         total_loss = policy_loss + VALUE_COEFFICIENT * value_loss - ENTROPY_COEFFICIENT * entropy.mean()
         
         return total_loss, policy_loss, value_loss
-
-    def compute_kl_divergence(self, old_log_probs, new_log_probs):
-        # KL divergence between old and new policy
-        pass
-
-    def early_stop_training(self, kl_div):
-        # Stop if KL divergence is too high
-        pass
-
-    def adaptive_learning_rate(self, kl_div):
-        # Adjust learning rate based on KL divergence
-        pass

@@ -12,7 +12,7 @@ if __name__ == "__main__":
     config = {
         "num_steps_per_epoch": 2048,
         "num_training_iterations": 500,
-        "k_epochs": 4
+        "k_epochs": 10
     }
     
     rl_loop = ReinforcementLearningLoop()
