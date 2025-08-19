@@ -6,7 +6,7 @@ if __name__ == "__main__":
     
     config = {
         "num_steps_per_epoch": 2048,
-        "num_training_iterations": 2000,
+        "num_training_iterations": 3000,
         "k_epochs": 10
     }
     

@@ -58,30 +58,33 @@ class NeuralNetwork(nn.Module):
                 dummy_conv = self.conv3(self.conv2(self.conv1(dummy_input)))
                 self.conv_output_size = dummy_conv.numel() // dummy_conv.size(0)
             
-            # Multiple dense layers after CNN for better feature processing
-            self.cnn_fc1 = nn.Linear(self.conv_output_size, 1024)
-            self.cnn_fc2 = nn.Linear(1024, 512)
+            # Multiple dense layers after CNN for feature compression
+            self.cnn_fc1 = nn.Linear(self.conv_output_size, 512)
+            self.cnn_fc2 = nn.Linear(512, 256)
+            self.cnn_fc3 = nn.Linear(256, 128)
             
         else:
             # Vector observations: Use fully-connected architecture
             input_size = np.prod(obs_shape)  # Flatten the observation space
             
-            # Multi-layer fully-connected network
+            # Multi-layer fully-connected network with decreasing dimensions (feature compression)
             self.fc1 = nn.Linear(input_size, 256)
-            self.fc2 = nn.Linear(256, 256)
-            self.fc3 = nn.Linear(256, 512)
+            self.fc2 = nn.Linear(256, 128)
+        
+        # Both architectures now end with 128 features for consistency
+        final_feature_size = 128
         
         # 6) Actor head - different for discrete vs continuous
         if self.is_discrete:
             # Discrete actions: logits over actions
-            self.logits = nn.Linear(512, self.num_actions)
+            self.logits = nn.Linear(final_feature_size, self.num_actions)
         else:
             # Continuous actions: mean and log_std for each action dimension
-            self.action_mean = nn.Linear(512, self.num_actions)
+            self.action_mean = nn.Linear(final_feature_size, self.num_actions)
             self.action_log_std = nn.Parameter(torch.zeros(self.num_actions))
         
         # 7) Critic head (scalar value)
-        self.value = nn.Linear(512, 1)
+        self.value = nn.Linear(final_feature_size, 1)
 
     def forward(self, inputs):
         """
@@ -103,10 +106,12 @@ class NeuralNetwork(nn.Module):
             # Flatten the output for the dense layers
             x = x.view(x.size(0), -1)
             
-            # Multiple fully-connected layers for better feature processing
+            # Multiple fully-connected layers for feature compression
             x = F.relu(self.cnn_fc1(x))
-            x = F.dropout(x, p=0.2, training=self.training)  # Add dropout for regularization
-            h = F.relu(self.cnn_fc2(x))
+            x = F.dropout(x, p=0.2, training=self.training)
+            x = F.relu(self.cnn_fc2(x))
+            x = F.dropout(x, p=0.2, training=self.training)
+            h = F.relu(self.cnn_fc3(x))
         else:
             # Fully-connected path for vector observations
             # Flatten input if needed
@@ -114,9 +119,7 @@ class NeuralNetwork(nn.Module):
             
             x = F.relu(self.fc1(x))
             x = F.dropout(x, p=0.1, training=self.training)  # Light dropout for regularization
-            x = F.relu(self.fc2(x))
-            x = F.dropout(x, p=0.1, training=self.training)
-            h = F.relu(self.fc3(x))
+            h = F.relu(self.fc2(x))
         
         # Value head (same for both)
         value = self.value(h)
