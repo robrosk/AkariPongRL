@@ -10,11 +10,16 @@ class ReinforcementLearningLoop:
         self.env_id = env_id
         self.render_mode = render_mode
         self.environment = Environment(env_id, render_mode=render_mode)
-        self.policy = Policy(NeuralNetwork(action_space=self.environment.get_action_space()))
+        self.policy = Policy(NeuralNetwork(self.environment.get_action_space(), self.environment.get_observation_space()))
         self.replay_buffer = []
         self.state = None
         self.done = False
         self.info = None
+        
+        # Training metrics
+        self.last_policy_loss = 0.0
+        self.last_value_loss = 0.0
+        self.last_entropy = 0.0
 
     def reset(self):
         self.state, self.info = self.environment.reset()
@@ -50,8 +55,7 @@ class ReinforcementLearningLoop:
             if done or truncated:
                 self.state = self.reset()
                 
-            if _ > 0 and _ % 100 == 0:
-                print(f"Collected {_} experiences")
+
         
     def train(self, k_epochs=4):
         # Unpack experiences. This is a list of tuples of tensors and other data.
@@ -99,8 +103,10 @@ class ReinforcementLearningLoop:
         # Clear the replay buffer for the next collection phase.
         self.replay_buffer = []
 
-        print(f"Training complete. Policy Loss: {policy_loss.item():.4f}, Value Loss: {value_loss.item():.4f}")
-        print(f"Entropy Loss. {entropy.mean()}")
+        # Store training metrics for potential logging
+        self.last_policy_loss = policy_loss.item()
+        self.last_value_loss = value_loss.item()
+        self.last_entropy = entropy.mean().item()
 
     def run(self, config):
         """
@@ -116,15 +122,18 @@ class ReinforcementLearningLoop:
         print(f"Starting PPO training for {config['num_training_iterations']} iterations...")
         
         for i in range(config['num_training_iterations']):
-            print(f"--- Iteration {i+1}/{config['num_training_iterations']} ---")
-            
-            print("Collecting experiences...")
+            # Collect experiences and train (silently)
             self.collect_experiences(num_steps=config['num_steps_per_epoch'])
-            
-            print("Training...")
             self.train(k_epochs=config['k_epochs'])
             
-        print("Training finished.")
+            # Print progress every 100 iterations
+            if (i + 1) % 100 == 0:
+                print(f"Iteration {i+1}/{config['num_training_iterations']}: "
+                      f"Policy Loss: {self.last_policy_loss:.4f}, "
+                      f"Value Loss: {self.last_value_loss:.4f}, "
+                      f"Entropy: {self.last_entropy:.4f}")
+        
+        print(f"Training finished after {config['num_training_iterations']} iterations.")
 
     def sample_trained_policy(self, num_episodes=5, render_mode="human"):
         """
