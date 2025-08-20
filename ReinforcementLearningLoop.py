@@ -1,4 +1,5 @@
 import numpy as np
+from collections import deque
 from Environment import Environment
 from Policy import Policy
 from NeuralNetwork import NeuralNetwork
@@ -20,10 +21,16 @@ class ReinforcementLearningLoop:
         self.last_policy_loss = 0.0
         self.last_value_loss = 0.0
         self.last_entropy = 0.0
+        
+        # Episode length tracking (moving average over last 100 episodes)
+        self.episode_lengths = deque(maxlen=100)
+        self.current_episode_length = 0
+        self.moving_avg_episode_length = 0.0
 
     def reset(self):
         self.state, self.info = self.environment.reset()
         self.done = False
+        self.current_episode_length = 0
         return Utilities.normalize_expand_transpose_state(self.state)
 
     def step(self, action):
@@ -33,6 +40,14 @@ class ReinforcementLearningLoop:
         self.state = next_state_tensor
         self.done = done or truncated
         self.info = info
+        
+        # Update episode length tracker
+        self.current_episode_length += 1
+        if self.done:
+            self.episode_lengths.append(self.current_episode_length)
+            if len(self.episode_lengths) > 0:
+                self.moving_avg_episode_length = float(np.mean(self.episode_lengths))
+
         return next_state_tensor, reward, done, truncated, info
     
     def collect_experiences(self, num_steps=2048):
@@ -93,7 +108,7 @@ class ReinforcementLearningLoop:
         for _ in range(k_epochs):
             new_log_probs, new_values, entropy = self.policy.evaluate_actions(states_tensor, actions_tensor)
             
-            total_loss, policy_loss, value_loss = self.policy.compute_losses(old_log_probs_tensor, new_log_probs, advantages, new_values, returns, entropy)
+            total_loss, policy_loss, value_loss = self.policy.compute_losses(old_log_probs_tensor, new_log_probs, advantages, new_values, old_values_tensor, returns, entropy)
             
             self.policy.optimizer.zero_grad()
             total_loss.backward()
@@ -131,7 +146,8 @@ class ReinforcementLearningLoop:
                 print(f"Iteration {i+1}/{config['num_training_iterations']}: "
                       f"Policy Loss: {self.last_policy_loss:.4f}, "
                       f"Value Loss: {self.last_value_loss:.4f}, "
-                      f"Entropy: {self.last_entropy:.4f}")
+                      f"Entropy: {self.last_entropy:.4f}, "
+                      f"Avg Ep Len (last 100): {self.moving_avg_episode_length:.1f}/500")
         
         print(f"Training finished after {config['num_training_iterations']} iterations.")
 

@@ -5,9 +5,10 @@ import numpy as np
 
 GAMMA = 0.99
 EPSILON = 0.2
+EPSILON_VALUE = 0.15
 LAMBDA = 0.95
 VALUE_COEFFICIENT = 1.0
-ENTROPY_COEFFICIENT = 0.01
+ENTROPY_COEFFICIENT = 0.05
 BASE = 0.9
 
 class Policy:
@@ -85,7 +86,7 @@ class Policy:
             advantages[t] = last_advantage
         return advantages
     
-    def compute_losses(self, old_log_probs, new_log_probs, advantages, new_values, returns, entropy):
+    def compute_losses(self, old_log_probs, new_log_probs, advantages, new_values, previous_values, returns, entropy):
         """
         Computes the PPO policy and value losses.
         """
@@ -95,8 +96,15 @@ class Policy:
         second_term = torch.clamp(ratio, 1 - EPSILON, 1 + EPSILON) * advantages
         policy_loss = -torch.min(first_term, second_term).mean()
         
-        # Value Loss (Mean Squared Error)
-        value_loss = torch.nn.functional.mse_loss(new_values, returns)
+        # Value Loss (clipped value objective, analogous to policy clipping)
+        # previous_values: values predicted by the old policy (no grad)
+        # new_values: current value predictions
+        V_new = new_values
+        V_old = previous_values
+        V_clip = V_old + torch.clamp(V_new - V_old, -EPSILON_VALUE, EPSILON_VALUE)
+        loss_unclipped = (V_new - returns).pow(2)
+        loss_clipped = (V_clip - returns).pow(2)
+        value_loss = torch.max(loss_unclipped, loss_clipped).mean()
         
         # Total Loss
         total_loss = policy_loss + VALUE_COEFFICIENT * value_loss - ENTROPY_COEFFICIENT * entropy.mean()

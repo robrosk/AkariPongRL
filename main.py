@@ -6,7 +6,7 @@ if __name__ == "__main__":
     
     config = {
         "num_steps_per_epoch": 2048,
-        "num_training_iterations": 3000,
+        "num_training_iterations": 5000,
         "k_epochs": 10
     }
     
@@ -16,7 +16,6 @@ if __name__ == "__main__":
     # Train the model
     rl_loop.run(config)
     
-    # Sample from trained policy with human rendering
     print("\n" + "="*50)
     print("EVALUATING TRAINED POLICY")
     print("="*50)
